@@ -4,15 +4,12 @@ import os
 
 app = Flask(__name__)
 
-# Mudamos a rota para '/' porque a Vercel já direciona o '/api/analisar' para cá
 @app.route('/', defaults={'path': ''}, methods=['POST', 'GET'])
 @app.route('/<path:path>', methods=['POST', 'GET'])
 def catch_all(path):
-    # Se alguém acessar pelo navegador (GET), avisa que o servidor está online
     if request.method == 'GET':
         return jsonify({"status": "Servidor Python online! Aguardando dados do produto."})
 
-    # Se for o botão do HTML (POST), processa a IA
     data = request.get_json() or {}
     product_name = data.get('product_name')
     market = data.get('market')
@@ -34,11 +31,15 @@ Gere:
 4. FILTRO DE COMPLIANCE (ANTI-BLOQUEIO)
 Responda em Português, mas os anúncios devem estar em "{language}"."""
 
-    url = f"https://googleapis.com{gemini_key}"
+    # URL completa e correta da API do Gemini
+    url = "https://googleapis.com"
+    parametros = {"key": gemini_key}
     
     try:
-        response = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]})
+        response = requests.post(url, params=parametros, json={"contents": [{"parts": [{"text": prompt}]}]})
         res_data = response.json()
+        
+        # Pega a resposta do texto da IA com os índices corretos
         texto_ia = res_data['candidates'][0]['content']['parts'][0]['text']
         return jsonify({"resultado": texto_ia})
     except Exception as e:
