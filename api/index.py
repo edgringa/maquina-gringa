@@ -2,58 +2,38 @@ from flask import Flask, request, jsonify
 import requests
 import os
 
-# Instância Flask corrigida com o nome que a Vercel exige
 app = Flask(__name__)
 
 @app.route('/api/analisar', methods=['POST'])
-def analisar_produto():
-    data = request.json
-    product_name = data.get("product_name")
-    market = data.get("market") # 'US' ou 'EU'
-    language = data.get("language", "en") # Idioma do mercado
+def analisar():
+    data = request.get_json()
+    product_name = data.get('product_name')
+    market = data.get('market')
+    language = data.get('language')
     
-    apify_token = os.environ.get("APIFY_TOKEN")
-    openai_token = os.environ.get("OPENAI_TOKEN")
+    # Pega a chave de forma segura das configurações da Vercel
+    gemini_key = os.environ.get("GEMINI_API_KEY")
     
-    if not apify_token or not openai_token:
-        return jsonify({"error": "Chaves de API não configuradas na Vercel"}), 500
+    if not gemini_key:
+        return jsonify({"error": "Chave da API não configurada na Vercel."}), 500
 
+    # Prompt cirúrgico para o Gemini
+    prompt = f"""Você é um gestor de tráfego pago especialista em afiliados na Europa (Smartadv).
+Analise o produto "{product_name}" para o mercado "{market}" no idioma "{language}".
+Gere:
+1. ANÁLISE DE DORES OCULTAS
+2. QUEBRA DE OBJEÇÕES DE MEIO DE FUNIL
+3. ANÚNCIOS RSA: 3 títulos (máx 30 carac.) e 2 descrições (máx 90 carac.) em "{language}".
+4. FILTRO DE COMPLIANCE (ANTI-BLOQUEIO)
+Responda em Português, mas os anúncios devem estar em "{language}"."""
+
+    url = f"https://googleapis.com{gemini_key}"
+    
     try:
-        # PASSO 1: Chamada para o Apify (Google Search Scraper)
-        apify_url = f"https://apify.com{apify_token}"
-
-        payload = {
-            "queries": f"{product_name} supplement website ingredients review",
-            "maxPagesPerQuery": 1,
-            "countryCode": market.lower(),
-            "languageCode": language.lower()
-        }
-        requests.post(apify_url, json=payload)
-
-        # PASSO 2: Prompt com regras estritas de compliance
-        prompt = f"""
-        Você é um Gestor de Tráfego profissional especialista em vender suplementos na gringa no MEIO DE FUNIL.
-        O produto alvo se chama: {product_name}. O mercado alvo é {market} e os anúncios devem ser em {language}.
+        response = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]})
+        res_data = response.json()
         
-        Gere um relatório estruturado em português contendo rigorosamente:
-        1. **PARECER DE DOR (SCORE DE 0 A 100)**: Explique a dor profunda subjacente (medo, frustração) que esse produto resolve. Diga claramente se é RECOMENDADO ou NÃO para meio de funil.
-        2. **PALAVRAS-CHAVE MOFU**: 5 palavras-chave em {language} focadas no problema (comerciais).
-        3. **PALAVRAS NEGATIVAS**: Lista em {language} para evitar cliques sujos.
-        4. **ANÚNCIO GOOGLE ADS (RSA)**: 3 Títulos (até 30 carac) e 2 descrições (até 90 carac) no idioma {language} focados estritamente na dor, ocultando o nome do produto.
-        """
-
-        # PASSO 3: Conexão com GPT-4o-mini
-        openai_url = "https://openai.com"
-        headers = {"Authorization": f"Bearer {openai_token}", "Content-Type": "application/json"}
-        openai_payload = {
-            "model": "gpt-4o-mini",
-            "messages": [{"role": "user", "content": prompt}]
-        }
-        
-        ai_response = requests.post(openai_url, json=openai_payload, headers=headers).json()
-        resultado_texto = ai_response['choices']['message']['content']
-        
-        return jsonify({"resultado": resultado_texto})
-
+        texto_ia = res_data['candidates'][0]['content']['parts'][0]['text']
+        return jsonify({"resultado": texto_ia})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
