@@ -4,8 +4,9 @@ import os
 
 app = Flask(__name__)
 
-# Rota explícita para bater com o vercel.json e com seu front-end
+# Ajustado para funcionar perfeitamente dentro da pasta api/
 @app.route('/api/analisar', methods=['POST'])
+@app.route('/', methods=['POST'])
 def analisar_produto():
     data = request.get_json() or {}
     product_name = data.get('product_name')
@@ -21,11 +22,7 @@ def analisar_produto():
 
     prompt = f"""Você é um gestor de tráfego pago especialista em afiliados na Europa (Smartadv) focado em campanhas de Meio de Funil. 
 Analise o produto "{product_name}" para o mercado "{market}" no idioma "{language}". 
-Gere: 
-1. ANÁLISE DE DORES OCULTAS 
-2. QUEBRA DE OBJEÇÕES DE MEIO DE FUNIL 
-3. ANÚNCIOS RSA: 3 títulos e 2 descrições em "{language}". 
-4. FILTRO DE COMPLIANCE. 
+Gere: 1. ANÁLISE DE DORES OCULTAS 2. QUEBRA DE OBJEÇÕES DE MEIO DE FUNIL 3. ANÚNCIOS RSA: 3 títulos e 2 descrições em "{language}". 4. FILTRO DE COMPLIANCE. 
 Responda em Português, mas os anúncios devem estar em "{language}"."""
 
     url = "https://openrouter.ai"
@@ -50,7 +47,7 @@ Responda em Português, mas os anúncios devem estar em "{language}"."""
             }), 500
 
         res_data = response.json()
-        texto_ia = res_data['choices'][0]['message']['content']
+        texto_ia = res_data['choices']['message']['content']
         return jsonify({"resultado": texto_ia})
 
     except Exception as e:
