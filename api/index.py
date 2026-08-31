@@ -4,17 +4,28 @@ import os
 
 app = Flask(__name__)
 
-# Ajustado para funcionar perfeitamente dentro da pasta api/
-@app.route('/api/analisar', methods=['POST'])
-@app.route('/', methods=['POST'])
+# Aceita tanto a rota com o prefixo quanto a rota raiz da função
+@app.route('/api/analisar', methods=['POST', 'GET'])
+@app.route('/', methods=['POST', 'GET'])
 def analisar_produto():
-    data = request.get_json() or {}
-    product_name = data.get('product_name')
-    market = data.get('market', 'Europa')
-    language = data.get('language', 'Português')
+    # Se for uma requisição GET (teste no navegador), avisa que está online
+    if request.method == 'GET':
+        return jsonify({"status": "Servidor Python online! Envie os dados via POST."})
 
+    # Pega os dados enviados pelo front-end
+    data = request.get_json() or {}
+    
+    # Busca por qualquer variação de nome que o seu front-end possa ter enviado
+    product_name = data.get('product_name') or data.get('nome') or data.get('produto')
+    market = data.get('market') or data.get('mercado') or 'Europa'
+    language = data.get('language') or data.get('idioma') or 'Português'
+
+    # Se mesmo assim não achar nada, mostra o que o front-end enviou de verdade para ajudar no diagnóstico
     if not product_name:
-        return jsonify({"error": "Faltando o nome do produto (product_name)."}), 400
+        return jsonify({
+            "error": "Faltando o nome do produto.",
+            "dados_recebidos_pelo_front": data
+        }), 400
 
     openrouter_key = os.environ.get("OPENROUTER_API_KEY")
     if not openrouter_key:
@@ -22,7 +33,11 @@ def analisar_produto():
 
     prompt = f"""Você é um gestor de tráfego pago especialista em afiliados na Europa (Smartadv) focado em campanhas de Meio de Funil. 
 Analise o produto "{product_name}" para o mercado "{market}" no idioma "{language}". 
-Gere: 1. ANÁLISE DE DORES OCULTAS 2. QUEBRA DE OBJEÇÕES DE MEIO DE FUNIL 3. ANÚNCIOS RSA: 3 títulos e 2 descrições em "{language}". 4. FILTRO DE COMPLIANCE. 
+Gere: 
+1. ANÁLISE DE DORES OCULTAS 
+2. QUEBRA DE OBJEÇÕES DE MEIO DE FUNIL 
+3. ANÚNCIOS RSA: 3 títulos e 2 descrições em "{language}". 
+4. FILTRO DE COMPLIANCE. 
 Responda em Português, mas os anúncios devem estar em "{language}"."""
 
     url = "https://openrouter.ai"
@@ -38,7 +53,7 @@ Responda em Português, mas os anúncios devem estar em "{language}"."""
     }
 
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=8)
+        response = requests.post(url, headers=headers, json=payload, timeout=10)
         
         if response.status_code != 200:
             return jsonify({
@@ -47,7 +62,7 @@ Responda em Português, mas os anúncios devem estar em "{language}"."""
             }), 500
 
         res_data = response.json()
-        texto_ia = res_data['choices']['message']['content']
+        texto_ia = res_data['choices'][0]['message']['content']
         return jsonify({"resultado": texto_ia})
 
     except Exception as e:
